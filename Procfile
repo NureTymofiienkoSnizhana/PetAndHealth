@@ -1,1 +1,1 @@
-web: ./PetAndHealth
+web: ./main.go
