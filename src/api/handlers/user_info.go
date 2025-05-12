@@ -2,35 +2,61 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/api/requests"
+	"github.com/go-chi/chi/v5"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"net/http"
 )
 
 func UserInfo(w http.ResponseWriter, r *http.Request) {
-	req, err := requests.NewUserID(r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	w.Header().Set("Content-Type", "application/json")
 
-	if req.ID.IsZero() {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
-		return
+	var userID primitive.ObjectID
+
+	idStr := chi.URLParam(r, "id")
+
+	if idStr == "" {
+		currentUserID, ok := r.Context().Value(UserIDContextKey).(primitive.ObjectID)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Unauthorized"})
+			return
+		}
+		userID = currentUserID
+	} else {
+		var err error
+		userID, err = primitive.ObjectIDFromHex(idStr)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid user ID format"})
+			return
+		}
+
+		currentUserRole, _ := r.Context().Value(UserRoleContextKey).(string)
+		currentUserID, _ := r.Context().Value(UserIDContextKey).(primitive.ObjectID)
+
+		if currentUserRole != "admin" && currentUserID != userID {
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "You can only view your own profile"})
+			return
+		}
 	}
 
 	usersDB := MongoDB(r).Users()
-	user, err := usersDB.Get(req.ID)
+	user, err := usersDB.Get(userID)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			http.Error(w, "User not found", http.StatusNotFound)
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "User not found"})
 			return
 		}
-		http.Error(w, "Failed to retrieve user information", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to retrieve user information"})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	user.PasswordHash = ""
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(user)
 }

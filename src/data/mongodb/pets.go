@@ -24,21 +24,96 @@ func NewPetsDB(db *mongo.Database) data.PetsDB {
 	return newPetsDB(db)
 }
 
-func (p *petsDB) Get(id primitive.ObjectID) (*data.Pet, error) {
-	var result data.Pet
-	err := p.collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&result)
+func (p *petsDB) createPetAggregationPipeline(matchStage bson.D) mongo.Pipeline {
+	return mongo.Pipeline{
+		{
+			{"$match", matchStage},
+		},
+		{
+			{"$lookup", bson.D{
+				{"from", UsersCollectionName},
+				{"localField", "owner_id"},
+				{"foreignField", "_id"},
+				{"as", "owner"},
+			}},
+		},
+		{
+			{"$lookup", bson.D{
+				{"from", HealthDataCollectionName},
+				{"localField", "_id"},
+				{"foreignField", "pet_id"},
+				{"as", "health_data"},
+			}},
+		},
+		{
+			{"$unwind", bson.D{
+				{"path", "$owner"},
+				{"preserveNullAndEmptyArrays", true},
+			}},
+		},
+		{
+			{"$group", bson.D{
+				{"_id", "$_id"},
+				{"name", bson.D{{"$first", "$name"}}},
+				{"species", bson.D{{"$first", "$species"}}},
+				{"breed", bson.D{{"$first", "$breed"}}},
+				{"age", bson.D{{"$first", "$age"}}},
+				{"owner_id", bson.D{{"$first", "$owner_id"}}},
+				{"owner", bson.D{{"$first", "$owner"}}},
+				{"health_data", bson.D{{"$first", "$health_data"}}},
+			}},
+		},
+	}
+}
+
+func (p *petsDB) executeAggregation(pipeline mongo.Pipeline) ([]*data.Pet, error) {
+	cursor, err := p.collection.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	defer cursor.Close(context.TODO())
+
+	var pets []*data.Pet
+	if err := cursor.All(context.TODO(), &pets); err != nil {
+		return nil, err
+	}
+
+	return pets, nil
+}
+
+func (p *petsDB) Get(id primitive.ObjectID) (*data.Pet, error) {
+	pipeline := p.createPetAggregationPipeline(bson.D{{"_id", id}})
+
+	pets, err := p.executeAggregation(pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(pets) == 0 {
+		return nil, mongo.ErrNoDocuments
+	}
+
+	return pets[0], nil
 }
 
 func (p *petsDB) Insert(pet *data.Pet) error {
-	_, err := p.collection.InsertOne(context.TODO(), pet)
+	petToInsert := &data.Pet{
+		ID:      pet.ID,
+		Name:    pet.Name,
+		Species: pet.Species,
+		Breed:   pet.Breed,
+		Age:     pet.Age,
+		OwnerID: pet.OwnerID,
+	}
+
+	_, err := p.collection.InsertOne(context.TODO(), petToInsert)
 	return err
 }
 
 func (p *petsDB) Update(id primitive.ObjectID, updateFields bson.M) error {
+	delete(updateFields, "health")
+	delete(updateFields, "owner")
+
 	_, err := p.collection.UpdateOne(
 		context.TODO(),
 		bson.M{"_id": id},
@@ -53,79 +128,16 @@ func (p *petsDB) Delete(id primitive.ObjectID) error {
 }
 
 func (p *petsDB) GetAll() ([]*data.Pet, error) {
-	var pets []*data.Pet
-	cursor, err := p.collection.Find(context.Background(), bson.M{})
-	if err != nil {
-		return nil, err
-	}
-
-	for cursor.Next(context.Background()) {
-		var pet *data.Pet
-		err := cursor.Decode(&pet)
-		if err != nil {
-			return nil, err
-		}
-		pets = append(pets, pet)
-	}
-
-	if err := cursor.Err(); err != nil {
-		return nil, err
-	}
-
-	return pets, nil
-}
-
-func (p *petsDB) GetPetWithHealth(petID primitive.ObjectID) (*data.PetWithHealth, error) {
-	pipeline := mongo.Pipeline{
-		{
-			{"$match", bson.D{{"_id", petID}}},
-		},
-		{
-			{"$lookup", bson.D{
-				{"from", "HealthData"},
-				{"localField", "_id"},
-				{"foreignField", "pet_id"},
-				{"as", "health_data"},
-			}},
-		},
-	}
-
-	cursor, err := p.collection.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(context.TODO())
-
-	var results []data.PetWithHealth
-	if err := cursor.All(context.TODO(), &results); err != nil {
-		return nil, err
-	}
-
-	if len(results) == 0 {
-		return nil, mongo.ErrNoDocuments
-	}
-
-	return &results[0], nil
+	pipeline := p.createPetAggregationPipeline(bson.D{})
+	return p.executeAggregation(pipeline)
 }
 
 func (p *petsDB) GetByFilter(filter bson.M) ([]*data.Pet, error) {
-	var pets []*data.Pet
-	cursor, err := p.collection.Find(context.TODO(), filter)
-	if err != nil {
-		return nil, err
+	matchStage := bson.D{}
+	for key, value := range filter {
+		matchStage = append(matchStage, bson.E{Key: key, Value: value})
 	}
 
-	for cursor.Next(context.TODO()) {
-		var pet data.Pet
-		if err := cursor.Decode(&pet); err != nil {
-			return nil, err
-		}
-		pets = append(pets, &pet)
-	}
-
-	if err := cursor.Err(); err != nil {
-		return nil, err
-	}
-
-	return pets, nil
+	pipeline := p.createPetAggregationPipeline(matchStage)
+	return p.executeAggregation(pipeline)
 }

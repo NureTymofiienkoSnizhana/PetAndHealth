@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type AddPet struct {
@@ -31,6 +32,18 @@ func NewPet(r *http.Request) (*AddPet, error) {
 	err = json.Unmarshal(body, &pet)
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.TrimSpace(pet.Name) == "" {
+		return nil, errors.New("pet name is required")
+	}
+
+	if strings.TrimSpace(pet.Species) == "" {
+		return nil, errors.New("pet species is required")
+	}
+
+	if pet.OwnerID.IsZero() {
+		return nil, errors.New("owner ID is required")
 	}
 
 	return &pet, nil

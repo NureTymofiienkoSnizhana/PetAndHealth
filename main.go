@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/middle/tokenstore"
 	"log"
 	"os"
+	"time"
 
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/api"
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/data/mongodb"
@@ -27,7 +29,7 @@ func main() {
 		panic("MONGO_USERNAME або MONGO_PASSWORD не встановлені")
 	}
 
-	// Формування URI для MongoDB
+	// Формування URL для MongoDB
 	mongoURI := fmt.Sprintf("mongodb+srv://%s:%s@petandhealth.dtpxu.mongodb.net/?retryWrites=true&w=majority&appName=PetAndHealth", username, password)
 	clientOptions := options.Client().ApplyURI(mongoURI)
 
@@ -45,4 +47,18 @@ func main() {
 	api.Run(api.Config{
 		MasterDB: mongoDB,
 	})
+}
+
+func startTokenCleanupRoutine() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				tokenstore.CleanupExpiredTokens()
+			}
+		}
+	}()
 }

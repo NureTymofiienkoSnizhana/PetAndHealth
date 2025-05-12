@@ -1,10 +1,9 @@
 package requests
 
 import (
-	"encoding/json"
 	"errors"
+	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"io"
 	"net/http"
 )
 
@@ -13,21 +12,18 @@ type PetID struct {
 }
 
 func NewPetID(r *http.Request) (*PetID, error) {
-	bodyReader := r.Body
-	if bodyReader == nil {
-		return nil, errors.New("missing body")
+	idStr := chi.URLParam(r, "id")
+
+	if idStr == "" {
+		return nil, errors.New("missing pet ID in URL")
 	}
 
-	body, err := io.ReadAll(bodyReader)
+	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
 		return nil, err
 	}
 
-	var pet PetID
-	err = json.Unmarshal(body, &pet)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pet, nil
+	return &PetID{
+		ID: id,
+	}, nil
 }

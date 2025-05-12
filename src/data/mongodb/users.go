@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
+	"time"
 )
 
 const UsersCollectionName = "Users"
@@ -29,6 +30,11 @@ func (u *usersDB) Get(id primitive.ObjectID) (*data.User, error) {
 	var result data.User
 	err := u.collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&result)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Printf("Користувача з ID %s не знайдено", id.Hex())
+			return nil, err
+		}
+		log.Printf("Помилка при отриманні користувача: %v", err)
 		return nil, err
 	}
 	return &result, nil
@@ -96,6 +102,29 @@ func (u *usersDB) FindByEmail(email string) (*data.User, error) {
 	return &user, nil
 }
 
+func (u *usersDB) GetAll() ([]*data.User, error) {
+	var users []*data.User
+	cursor, err := u.collection.Find(context.Background(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	for cursor.Next(context.Background()) {
+		var user *data.User
+		err := cursor.Decode(&user)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
 func (u *usersDB) Delete(userID primitive.ObjectID) error {
 	result, err := u.collection.DeleteOne(
 		context.TODO(),
@@ -111,5 +140,58 @@ func (u *usersDB) Delete(userID primitive.ObjectID) error {
 		log.Printf("No user found with ID: %v", userID.Hex())
 		return mongo.ErrNoDocuments
 	}
+	return nil
+}
+
+func (u *usersDB) ResetPassword(email string, newPasswordHash string) error {
+	update := bson.M{
+		"$set": bson.M{
+			"password_hash":       newPasswordHash,
+			"password_reset_time": time.Now(),
+		},
+	}
+
+	result, err := u.collection.UpdateOne(
+		context.TODO(),
+		bson.M{"email": email},
+		update,
+	)
+
+	if err != nil {
+		log.Printf("Error resetting password: %v", err)
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		log.Printf("No user found with email: %v", email)
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
+}
+
+func (u *usersDB) RequirePasswordChange(id primitive.ObjectID, required bool) error {
+	update := bson.M{
+		"$set": bson.M{
+			"password_change_required": required,
+		},
+	}
+
+	result, err := u.collection.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": id},
+		update,
+	)
+
+	if err != nil {
+		log.Printf("Error setting password change requirement: %v", err)
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		log.Printf("No user found with ID: %v", id.Hex())
+		return mongo.ErrNoDocuments
+	}
+
 	return nil
 }

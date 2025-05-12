@@ -61,3 +61,26 @@ func (d *devicesDB) Update(id primitive.ObjectID, updateFields bson.M) error {
 	)
 	return err
 }
+
+func (d *devicesDB) GetAll() ([]*data.Device, error) {
+	var devices []*data.Device
+	cursor, err := d.collection.Find(context.Background(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	for cursor.Next(context.Background()) {
+		var device *data.Device
+		err := cursor.Decode(&device)
+		if err != nil {
+			return nil, err
+		}
+		devices = append(devices, device)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return devices, nil
+}

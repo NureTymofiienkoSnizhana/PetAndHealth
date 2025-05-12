@@ -9,10 +9,12 @@ import (
 )
 
 type UpdateDevice struct {
-	ID           primitive.ObjectID `json:"_id"`
-	PetID        primitive.ObjectID `json:"pet_id"`
-	Status       string             `json:"status"`
-	LastSyncTime int64              `json:"last_sync_time"`
+	ID           primitive.ObjectID `json:"-"` // Тепер ID не очікується в JSON
+	SerialNumber string             `json:"serial_number,omitempty"`
+	Model        string             `json:"model,omitempty"`
+	PetID        primitive.ObjectID `json:"pet_id,omitempty"`
+	Status       string             `json:"status,omitempty"`
+	LastSyncTime int64              `json:"last_sync_time,omitempty"`
 }
 
 func NewUpdateDevice(r *http.Request) (*UpdateDevice, error) {
@@ -32,5 +34,6 @@ func NewUpdateDevice(r *http.Request) (*UpdateDevice, error) {
 		return nil, err
 	}
 
+	// ID тепер буде встановлено з URL параметрів, а не з тіла запиту
 	return &device, nil
 }

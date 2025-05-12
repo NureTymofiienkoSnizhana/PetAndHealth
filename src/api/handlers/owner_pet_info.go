@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func PetInfo(w http.ResponseWriter, r *http.Request) {
+func OwnerPetInfo(w http.ResponseWriter, r *http.Request) {
 	req, err := requests.NewPetID(r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

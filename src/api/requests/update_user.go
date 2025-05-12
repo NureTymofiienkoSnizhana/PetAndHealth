@@ -9,12 +9,12 @@ import (
 )
 
 type UpdateUser struct {
-	ID       primitive.ObjectID   `json:"_id"`
-	FullName string               `json:"full_name"`
-	Role     string               `json:"role"`
-	Email    string               `json:"email"`
-	Password string               `json:"password"`
-	PetsID   []primitive.ObjectID `json:"pets_id"`
+	ID       primitive.ObjectID   `json:"-"` // ID тепер не очікується в JSON
+	FullName string               `json:"full_name,omitempty"`
+	Role     string               `json:"role,omitempty"`
+	Email    string               `json:"email,omitempty"`
+	Password string               `json:"password,omitempty"`
+	PetsID   []primitive.ObjectID `json:"pets_id,omitempty"`
 }
 
 func NewUpdateUser(r *http.Request) (*UpdateUser, error) {

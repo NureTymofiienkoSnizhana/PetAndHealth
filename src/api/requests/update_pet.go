@@ -9,7 +9,7 @@ import (
 )
 
 type UpdatePet struct {
-	ID      primitive.ObjectID `json:"_id"`
+	ID      primitive.ObjectID `json:"-"`
 	Name    string             `json:"name"`
 	Species string             `json:"species"`
 	Breed   string             `json:"breed"`

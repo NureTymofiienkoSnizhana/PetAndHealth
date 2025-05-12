@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/api/requests"
-	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
@@ -11,31 +10,15 @@ import (
 	"strings"
 )
 
-func UpdateUser(w http.ResponseWriter, r *http.Request) {
+func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	userIDStr := chi.URLParam(r, "id")
-	if userIDStr == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "User ID is required"})
-		return
-	}
-
-	userID, err := primitive.ObjectIDFromHex(userIDStr)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid user ID format"})
-		return
-	}
-
-	req, err := requests.NewUpdateUser(r)
+	req, err := requests.NewUpdateUserProfile(r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid request format"})
 		return
 	}
-
-	req.ID = userID
 
 	currentUserID, ok := r.Context().Value(UserIDContextKey).(primitive.ObjectID)
 	if !ok {
@@ -44,16 +27,8 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentUserRole, _ := r.Context().Value(UserRoleContextKey).(string)
-
-	if currentUserRole != "admin" && userID != currentUserID {
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "You can only update your own profile"})
-		return
-	}
-
 	usersDB := MongoDB(r).Users()
-	currentUser, err := usersDB.Get(userID)
+	currentUser, err := usersDB.Get(currentUserID)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: "User not found"})
@@ -68,26 +43,12 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if strings.TrimSpace(req.Email) != "" && req.Email != currentUser.Email {
 		existingUser, _ := usersDB.FindByEmail(req.Email)
-		if existingUser != nil && existingUser.ID != userID {
+		if existingUser != nil && existingUser.ID != currentUserID {
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Email already in use"})
 			return
 		}
 		updateFields["email"] = strings.ToLower(req.Email)
-	}
-
-	if req.Role != "" && currentUserRole == "admin" {
-		validRoles := map[string]bool{
-			"admin": true,
-			"user":  true,
-			"vet":   true,
-		}
-		if !validRoles[req.Role] {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid role"})
-			return
-		}
-		updateFields["role"] = req.Role
 	}
 
 	if req.Password != "" {
@@ -106,16 +67,16 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = usersDB.Update(userID, bson.M{"$set": updateFields})
+	err = usersDB.Update(currentUserID, bson.M{"$set": updateFields})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to update user"})
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to update user profile"})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "User updated successfully",
-		"userID":  userID.Hex(),
+		"message": "Profile updated successfully",
+		"userID":  currentUserID.Hex(),
 	})
 }

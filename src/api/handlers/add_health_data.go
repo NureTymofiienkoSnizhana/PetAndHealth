@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/api/requests"
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/data"
+	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/utils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/http"
 	"strings"
@@ -55,7 +55,7 @@ func AddHealthData(w http.ResponseWriter, r *http.Request) {
 	ownerID := pet.OwnerID
 
 	notificationsDB := MongoDB(r).Notifications()
-	checkThresholdsAndNotify(notificationsDB, ownerID, req.Temperature, req.SleepHours, currentTime)
+	utils.CheckPetHealthAndNotify(notificationsDB, ownerID, req.Temperature, req.SleepHours, currentTime)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -63,37 +63,4 @@ func AddHealthData(w http.ResponseWriter, r *http.Request) {
 		"healthDataID": healthData.ID.Hex(),
 		"time":         currentTime.Format(time.RFC3339),
 	})
-}
-
-func checkThresholdsAndNotify(notificationsDB data.NotificationsDB, ownerID primitive.ObjectID, temperature float64, sleepHours float64, currentTime time.Time) {
-	const (
-		minTemperature = 37.0
-		maxTemperature = 39.5
-		minSleepHours  = 7.0
-		maxSleepHours  = 15.0
-	)
-
-	if temperature < minTemperature || temperature > maxTemperature {
-		message := fmt.Sprintf("Abnormal temperature detected: %.2f°C. Please check your pet's health.", temperature)
-		createNotification(notificationsDB, ownerID, message, currentTime)
-	}
-
-	if sleepHours > maxSleepHours {
-		message := fmt.Sprintf("Abnormal sleep hours detected: %.2f hours. Please monitor your pet's activity.", sleepHours)
-		createNotification(notificationsDB, ownerID, message, currentTime)
-	}
-}
-
-func createNotification(notificationsDB data.NotificationsDB, ownerID primitive.ObjectID, message string, currentTime time.Time) {
-	notification := data.Notification{
-		ID:      primitive.NewObjectID(),
-		UserID:  ownerID,
-		Message: message,
-		Time:    currentTime,
-	}
-
-	err := notificationsDB.Insert(&notification)
-	if err != nil {
-		fmt.Printf("Failed to insert notification: %s\n", err)
-	}
 }

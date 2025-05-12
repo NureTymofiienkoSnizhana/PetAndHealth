@@ -3,18 +3,16 @@ package requests
 import (
 	"encoding/json"
 	"errors"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io"
 	"net/http"
 )
 
-type PetReport struct {
-	PetID     primitive.ObjectID `json:"_id"`
-	StartTime int64              `json:"start_time"`
-	EndTime   int64              `json:"end_time"`
+type PetReportTimeRange struct {
+	StartTime int64 `json:"start_time"`
+	EndTime   int64 `json:"end_time"`
 }
 
-func NewPetReport(r *http.Request) (*PetReport, error) {
+func NewPetReportTimeRange(r *http.Request) (*PetReportTimeRange, error) {
 	bodyReader := r.Body
 	if bodyReader == nil {
 		return nil, errors.New("missing body")
@@ -25,11 +23,11 @@ func NewPetReport(r *http.Request) (*PetReport, error) {
 		return nil, err
 	}
 
-	var report PetReport
-	err = json.Unmarshal(body, &report)
+	var timeRange PetReportTimeRange
+	err = json.Unmarshal(body, &timeRange)
 	if err != nil {
 		return nil, err
 	}
 
-	return &report, nil
+	return &timeRange, nil
 }

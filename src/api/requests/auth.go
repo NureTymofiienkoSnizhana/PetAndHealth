@@ -7,12 +7,12 @@ import (
 	"net/http"
 )
 
-type Autn struct {
+type Auth struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-func NewAuth(r *http.Request) (*Autn, error) {
+func NewAuth(r *http.Request) (*Auth, error) {
 	bodyReader := r.Body
 	if bodyReader == nil {
 		return nil, errors.New("missing body")
@@ -23,7 +23,7 @@ func NewAuth(r *http.Request) (*Autn, error) {
 		return nil, err
 	}
 
-	var auth Autn
+	var auth Auth
 	err = json.Unmarshal(body, &auth)
 	if err != nil {
 		return nil, err
