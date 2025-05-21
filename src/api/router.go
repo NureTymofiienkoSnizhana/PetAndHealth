@@ -2,22 +2,24 @@ package api
 
 import (
 	"context"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/api/handlers"
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/data"
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/middle"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"net/http"
-	"os"
-	"time"
 )
 
 type Config struct {
 	MasterDB data.MasterDB
 }
 
-func Run(config Config) {
+// GetRouter создает и возвращает маршрутизатор без запуска сервера
+func GetRouter(config Config) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Middleware
@@ -46,6 +48,7 @@ func Run(config Config) {
 			r.Post("/auth", handlers.Auth)
 			r.Put("/forgot-password", handlers.ForgotPassword)
 			r.Post("/logout", handlers.Logout)
+			r.Post("/registration", handlers.Registration)
 		})
 
 		r.Route("/", func(r chi.Router) {
@@ -110,6 +113,13 @@ func Run(config Config) {
 			r.Post("/device", handlers.AddHealthData)
 		})
 	})
+
+	return r
+}
+
+// Run создает маршрутизатор и запускает HTTP-сервер
+func Run(config Config) {
+	r := GetRouter(config)
 
 	port := os.Getenv("PORT")
 	if port == "" {
