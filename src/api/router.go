@@ -18,7 +18,6 @@ type Config struct {
 	MasterDB data.MasterDB
 }
 
-// GetRouter создает и возвращает маршрутизатор без запуска сервера
 func GetRouter(config Config) *chi.Mux {
 	r := chi.NewRouter()
 
@@ -64,6 +63,7 @@ func GetRouter(config Config) *chi.Mux {
 					r.Put("/{id}", handlers.UpdatePet)            // Оновлення інформації про тварину
 					r.Delete("/{id}", handlers.DeletePet)         // Видалення тварини
 					r.Post("/{id}/report", handlers.GetPetReport) // Генерація звіту про тварину
+					r.Get("/{id}/health", handlers.GetPetHealth)  // Отримання даних про здоров'я тварини
 				})
 
 				r.Route("/devices", func(r chi.Router) {
@@ -83,6 +83,7 @@ func GetRouter(config Config) *chi.Mux {
 				})
 				r.Get("/profile", handlers.UserInfo)          // Профіль адміністратора
 				r.Put("/profile", handlers.UpdateUserProfile) // Оновлення профілю адміна
+				r.Get("/pets/health/summary", handlers.GetHealthPetsByOwner)
 			})
 
 			// Маршрути для ветеринара
@@ -92,23 +93,27 @@ func GetRouter(config Config) *chi.Mux {
 				r.Get("/pets/{id}", handlers.PetInfo)              // Інформація про конкретну тварину
 				r.Post("/pets/{id}/report", handlers.GetPetReport) // Генерація звіту про тварину
 				r.Get("/users", handlers.GetUsers)
-				r.Get("/profile", handlers.UserInfo)          // Профіль ветеринара
-				r.Put("/profile", handlers.UpdateUserProfile) // Оновлення профілю ветеринара
+				r.Get("/profile", handlers.UserInfo)                         // Профіль ветеринара
+				r.Put("/profile", handlers.UpdateUserProfile)                // Оновлення профілю ветеринара
+				r.Get("/pets/{id}/health", handlers.GetPetHealth)            // Отримання даних про здоров'я тварини
+				r.Get("/pets/health/summary", handlers.GetHealthPetsByOwner) // Отримання загальної інформації про здоров'я всіх тварин власника
 			})
 
 			r.Route("/owner", func(r chi.Router) {
 				r.Use(middle.CheckRole("user"))
-				r.Get("/pets", handlers.GetOwnerPets)         // Список тварин власника
-				r.Get("/pets/{id}", handlers.OwnerPetInfo)    // Інформація про конкретну тварину власника
-				r.Get("/profile", handlers.UserInfo)          // Профіль власника
-				r.Put("/profile", handlers.UpdateUserProfile) // Оновлення профілю власника
+				r.Get("/pets", handlers.GetOwnerPets)             // Список тварин власника
+				r.Get("/pets/{id}", handlers.OwnerPetInfo)        // Інформація про конкретну тварину власника
+				r.Get("/profile", handlers.UserInfo)              // Профіль власника
+				r.Put("/profile", handlers.UpdateUserProfile)     // Оновлення профілю власника
+				r.Get("/pets/{id}/health", handlers.GetPetHealth) // Отримання даних про здоров'я тварини
+				r.Get("/pets/{id}/summary", handlers.GetPetHealthSummary)
+				r.Get("/pets/health/summary", handlers.GetHealthPetsByOwner) // Отримання загальної інформації про здоров'я всіх тварин власника
 
 				// Отримання сповіщень
 				//r.Get("/notifications", handlers.GetNotifications)   // Отримання сповіщень про стан здоров'я
 			})
 		})
 
-		// Точка прийому даних від пристроїв (можливо потрібна окрема авторизація)
 		r.Route("/health-data", func(r chi.Router) {
 			r.Post("/device", handlers.AddHealthData)
 		})
@@ -117,7 +122,6 @@ func GetRouter(config Config) *chi.Mux {
 	return r
 }
 
-// Run создает маршрутизатор и запускает HTTP-сервер
 func Run(config Config) {
 	r := GetRouter(config)
 

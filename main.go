@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/middle/tokenstore"
 	"log"
 	"os"
 	"time"
+
+	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/middle/tokenstore"
 
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/api"
 	"github.com/NureTymofiienkoSnizhana/arkpz-pzpi-22-9-tymofiienko-snizhana/Pract1/arkpz-pzpi-22-9-tymofiienko-snizhana-task2/src/data/mongodb"
@@ -43,7 +44,8 @@ func main() {
 	petAndHealthDB := client.Database("PetAndHealth")
 	mongoDB := mongodb.NewMasterDB(petAndHealthDB)
 
-	// Запуск API
+	startTokenCleanupRoutine()
+
 	api.Run(api.Config{
 		MasterDB: mongoDB,
 	})
@@ -54,11 +56,8 @@ func startTokenCleanupRoutine() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				tokenstore.CleanupExpiredTokens()
-			}
+		for range ticker.C {
+			tokenstore.CleanupExpiredTokens()
 		}
 	}()
 }
